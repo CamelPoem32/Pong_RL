@@ -29,29 +29,28 @@ Unlike the standard pixel-based Atari setup, this project uses a simplified coor
 
 The environment is based on **Atari Pong**, specifically: `PongNoFrameskip-v4`.
 
-
 The agent controls one paddle and plays against the built-in Atari opponent. A full game ends when one side reaches the standard Pong terminal score. The reward is sparse:
 
-$$
+```math
 r_t =
 \begin{cases}
 +1, & \text{if the agent wins} \\
 -1, & \text{if the agent loses} \\
 0, & \text{otherwise}
 \end{cases}
-$$
+```
 
-The total episode return is therefore equals the score difference:
+The total episode return is therefore equal to the score difference:
 
-$$
+```math
 G = \sum_{t=0}^{T-1} r_t
-$$
+```
 
 A strong policy should obtain positive return, while a weak policy remains close to:
 
-$$
+```math
 G_{min} = -21
-$$
+```
 
 because it loses nearly every rally.
 
@@ -61,9 +60,9 @@ because it loses nearly every rally.
 
 We model the task as a Markov Decision Process:
 
-$$
+```math
 (\mathcal{S}, \mathcal{A}, \mathcal{P}, \mathcal{R}, \gamma)
-$$
+```
 
 where:
 
@@ -75,15 +74,19 @@ where:
 
 The objective is to find a policy $\pi_\theta(a|s)$ maximizing the expected return:
 
-$$
-J(\theta)=\mathbb{E}_{\tau \sim \pi_\theta}\left[\sum_{t=0}^{T-1}\gamma^t r_t\right]
-$$
+```math
+J(\theta)=
+\mathbb{E}_{\tau \sim \pi_\theta}
+\left[
+\sum_{t=0}^{T-1}\gamma^t r_t
+\right]
+```
 
 where a trajectory is:
 
-$$
+```math
 \tau=(s_0,a_0,r_0,s_1,a_1,r_1,\dots,s_T)
-$$
+```
 
 ---
 
@@ -98,7 +101,7 @@ The extracted coordinates are normalized to $[0,1]$.
 
 The basic coordinate vector is:
 
-$$
+```math
 c_t =
 \begin{bmatrix}
 y^{paddle}_t \\
@@ -106,11 +109,11 @@ x^{ball}_t \\
 y^{ball}_t
 \end{bmatrix}
 \in [0,1]^3
-$$
+```
 
 To preserve velocity-like information, the observation stacks the last four coordinate vectors:
 
-$$
+```math
 s_t =
 \begin{bmatrix}
 c_{t-3} \\
@@ -118,13 +121,13 @@ c_{t-2} \\
 c_{t-1} \\
 c_t
 \end{bmatrix}
-$$
+```
 
 Thus, the state dimension is:
 
-$$
+```math
 \mathcal{S} \subseteq [0,1]^{12}
-$$
+```
 
 This gives the policy enough information to infer approximate ball velocity without using a CNN.
 
@@ -134,23 +137,27 @@ This gives the policy enough information to infer approximate ball velocity with
 
 Atari Pong exposes six discrete actions:
 
-$$
+```math
 \mathcal{A}=\{0,1,2,3,4,5\}
-$$
+```
 
 These correspond to the Atari action set, including actions such as no-op, fire, up, down, and redundant movement actions depending on the ALE interface.
 
 The policy is categorical:
 
-$$
+```math
 a_t \sim \pi_\theta(\cdot|s_t)
-$$
+```
 
 with:
 
-$$
-\pi_\theta(a|s)=\text{Categorical}(\text{softmax}(f_\theta(s)))
-$$
+```math
+\pi_\theta(a|s)=
+\text{Categorical}
+\left(
+\text{softmax}(f_\theta(s))
+\right)
+```
 
 where $f_\theta(s)$ is the neural network outputting logits for all actions.
 
@@ -160,11 +167,11 @@ where $f_\theta(s)$ is the neural network outputting logits for all actions.
 
 The transition function is inherited from the Atari emulator:
 
-$$
+```math
 s_{t+1} \sim \mathcal{P}(\cdot|s_t,a_t)
-$$
+```
 
-Internally, the true emulator state contains the full Pong game state. Our wrapper observes only extracted coordinates. 
+Internally, the true emulator state contains the full Pong game state. Our wrapper observes only extracted coordinates.
 
 ---
 
@@ -172,20 +179,21 @@ Internally, the true emulator state contains the full Pong game state. Our wrapp
 
 The reward is the Atari Pong rally reward:
 
-$$
+```math
 r_t =
 \begin{cases}
 +1, & \text{agent scores} \\
 -1, & \text{opponent scores} \\
 0, & \text{game is still ongoing}
 \end{cases}
-$$
+```
 
 The return from time $t$ is:
 
-$$
-G_t=\sum_{k=t}^{T-1}\gamma^{k-t}r_k
-$$
+```math
+G_t=
+\sum_{k=t}^{T-1}\gamma^{k-t}r_k
+```
 
 We use $\gamma=0.99$, so later rewards are slightly discounted while still keeping long-term rally outcomes important.
 
@@ -195,33 +203,43 @@ We use $\gamma=0.99$, so later rewards are slightly discounted while still keepi
 
 All methods use an MLP policy network on the coordinate observation. The common actor structure is:
 
-$$
-s_t \rightarrow \text{Linear} \rightarrow \text{ReLU} \rightarrow \text{Linear} \rightarrow \text{logits}
-$$
+```math
+s_t
+\rightarrow
+\text{Linear}
+\rightarrow
+\text{ReLU}
+\rightarrow
+\text{Linear}
+\rightarrow
+\text{logits}
+```
 
 The output logits parameterize a categorical distribution:
 
-$$
-\pi_\theta(a|s)=\frac{\exp(z_a)}{\sum_{a'\in\mathcal{A}}\exp(z_{a'})}
-$$
+```math
+\pi_\theta(a|s)=
+\frac{\exp(z_a)}
+{\sum_{a'\in\mathcal{A}}\exp(z_{a'})}
+```
 
 where:
 
-$$
+```math
 z=f_\theta(s)
-$$
+```
 
 For PPO, an additional value head is used:
 
-$$
+```math
 V_\phi(s)
-$$
+```
 
 For SAC, two Q-functions are used:
 
-$$
+```math
 Q_{\psi_1}(s,a), \quad Q_{\psi_2}(s,a)
-$$
+```
 
 ---
 
@@ -233,28 +251,38 @@ REINFORCE is the vanilla Monte-Carlo policy-gradient algorithm.
 
 The policy-gradient theorem gives:
 
-$$
+```math
 \nabla_\theta J(\theta)
 =
 \mathbb{E}_{\pi_\theta}
 \left[
-G_t \nabla_\theta \log \pi_\theta(a_t|s_t)
+G_t
+\nabla_\theta
+\log \pi_\theta(a_t|s_t)
 \right]
-$$
+```
 
 The implemented loss is:
 
-$$
+```math
 \mathcal{L}_{REINFORCE}(\theta)
 =
--\sum_{t=0}^{T-1}G_t\log \pi_\theta(a_t|s_t)
-$$
+-\sum_{t=0}^{T-1}
+G_t
+\log \pi_\theta(a_t|s_t)
+```
 
 The parameters are updated with Adam:
 
-$$
-\theta \leftarrow \theta - \alpha \nabla_\theta \mathcal{L}_{REINFORCE}(\theta)
-$$
+```math
+\theta
+\leftarrow
+\theta
+-
+\alpha
+\nabla_\theta
+\mathcal{L}_{REINFORCE}(\theta)
+```
 
 ### Comments
 
@@ -268,31 +296,31 @@ Natural Policy Gradient modifies the vanilla gradient step by accounting for the
 
 The standard gradient is:
 
-$$
+```math
 g=\nabla_\theta J(\theta)
-$$
+```
 
 The natural gradient direction is:
 
-$$
+```math
 \tilde{g}=F(\theta)^{-1}g
-$$
+```
 
 where $F(\theta)$ is the Fisher Information Matrix:
 
-$$
+```math
 F(\theta)
 =
 \mathbb{E}_{s,a\sim\pi_\theta}
 \left[
-\nabla_\theta \log \pi_\theta(a|s)
+\nabla_\theta \log\pi_\theta(a|s)
 \nabla_\theta \log \pi_\theta(a|s)^T
 \right]
-$$
+```
 
 Equivalently, the Fisher matrix can be obtained from the local curvature of the KL divergence:
 
-$$
+```math
 F(\theta)
 =
 \nabla_\theta^2
@@ -302,38 +330,34 @@ D_{KL}
 \|
 \pi_\theta(\cdot|s)
 \right)
-$$
+```
 
 The update is:
 
-$$
+```math
 \theta_{new}
 =
-\theta
-+
-\eta F^{-1}g
-$$
+\theta+\eta F^{-1}g
+```
 
 In the implementation, the inverse Fisher product is computed approximately using conjugate gradient. The step size is scaled to satisfy an approximate KL bound:
 
-$$
+```math
 \eta
 =
 \sqrt{
 \frac{2\epsilon}
 {\tilde{g}^T F \tilde{g}}
 }
-$$
+```
 
 so:
 
-$$
+```math
 \theta_{new}
 =
-\theta
-+
-\eta \tilde{g}
-$$
+\theta+\eta \tilde{g}
+```
 
 ### Comments
 
@@ -347,7 +371,7 @@ TRPO improves policy-gradient training by explicitly constraining how much the n
 
 The surrogate objective is:
 
-$$
+```math
 L_{\theta_{old}}(\theta)
 =
 \mathbb{E}
@@ -356,24 +380,25 @@ L_{\theta_{old}}(\theta)
 {\pi_{\theta_{old}}(a_t|s_t)}
 A_t
 \right]
-$$
+```
 
 and $A_t$ is an advantage estimate.
 
 The constrained optimization problem is:
 
-$$
+```math
 \max_\theta
 \mathbb{E}
 \left[
 \frac{\pi_\theta(a_t|s_t)}
-{\pi_{\theta_{old}}(a_t|s_t)}A_t
+{\pi_{\theta_{old}}(a_t|s_t)}
+A_t
 \right]
-$$
+```
 
 subject to:
 
-$$
+```math
 \mathbb{E}
 \left[
 D_{KL}
@@ -384,21 +409,22 @@ D_{KL}
 \right)
 \right]
 \leq \delta
-$$
+```
 
 The implementation computes:
 
-$$
-Fv
-=
-\nabla_\theta^2D_{KL}(\pi_{\theta_{old}},\pi_\theta)v
-$$
+```math
+Fv=
+\nabla_\theta^2
+D_{KL}
+(\pi_{\theta_{old}},\pi_\theta)v
+```
 
 without forming the full Fisher matrix. Then conjugate gradient approximates:
 
-$$
+```math
 F^{-1}g
-$$
+```
 
 A backtracking line search accepts the update only if the KL constraint is satisfied and the surrogate objective improves.
 
@@ -414,16 +440,16 @@ PPO replaces the hard TRPO trust-region constraint with a simpler clipped object
 
 The probability ratio is:
 
-$$
+```math
 r_t(\theta)
 =
 \frac{\pi_\theta(a_t|s_t)}
 {\pi_{\theta_{old}}(a_t|s_t)}
-$$
+```
 
 The clipped objective is:
 
-$$
+```math
 L_{CLIP}(\theta)
 =
 \mathbb{E}
@@ -434,11 +460,11 @@ r_t(\theta)A_t,
 \text{clip}(r_t(\theta),1-\epsilon,1+\epsilon)A_t
 \right)
 \right]
-$$
+```
 
 The PPO loss is minimized as:
 
-$$
+```math
 \mathcal{L}_{PPO}
 =
 -L_{CLIP}
@@ -446,38 +472,41 @@ $$
 c_v\mathcal{L}_V
 -
 c_e\mathcal{H}(\pi_\theta)
-$$
+```
 
 where:
 
-$$
+```math
 \mathcal{L}_V
 =
 (V_\phi(s_t)-R_t)^2
-$$
+```
 
 and:
 
-$$
+```math
 \mathcal{H}(\pi_\theta)
 =
--\sum_a \pi_\theta(a|s_t)\log \pi_\theta(a|s_t)
-$$
+-\sum_a
+\pi_\theta(a|s_t)
+\log \pi_\theta(a|s_t)
+```
 
 The advantage is computed with Generalized Advantage Estimation:
 
-$$
+```math
 \delta_t
 =
 r_t+\gamma V(s_{t+1})-V(s_t)
-$$
+```
 
-$$
+```math
 A_t^{GAE}
 =
 \sum_{l=0}^{T-t-1}
-(\gamma\lambda)^l\delta_{t+l}
-$$
+(\gamma\lambda)^l
+\delta_{t+l}
+```
 
 ### Comments
 
@@ -489,7 +518,7 @@ PPO achieved strong positive returns, although below TRPO in the final plot. It 
 
 SAC is an off-policy maximum-entropy actor-critic method. It optimizes both reward and entropy:
 
-$$
+```math
 J(\pi)
 =
 \mathbb{E}
@@ -497,26 +526,33 @@ J(\pi)
 \sum_{t=0}^{T-1}
 \gamma^t
 \left(
-r_t+\alpha\mathcal{H}(\pi(\cdot|s_t))
+r_t
++
+\alpha
+\mathcal{H}
+(\pi(\cdot|s_t))
 \right)
 \right]
-$$
+```
 
 For discrete actions, the soft value is:
 
-$$
+```math
 V(s)
 =
 \sum_a
 \pi(a|s)
 \left[
-Q(s,a)-\alpha\log\pi(a|s)
+Q(s,a)
+-
+\alpha
+\log\pi(a|s)
 \right]
-$$
+```
 
 The critic target is:
 
-$$
+```math
 y_t
 =
 r_t
@@ -525,26 +561,28 @@ r_t
 \sum_{a'}
 \pi(a'|s_{t+1})
 \left[
-\min_i Q_{\psi_i}^{target}(s_{t+1},a')
+\min_i
+Q_{\psi_i}^{target}(s_{t+1},a')
 -
-\alpha\log\pi(a'|s_{t+1})
+\alpha
+\log\pi(a'|s_{t+1})
 \right]
-$$
+```
 
 The critic loss is:
 
-$$
+```math
 \mathcal{L}_Q
 =
 \sum_{i=1}^{2}
 \left(
 Q_{\psi_i}(s_t,a_t)-y_t
 \right)^2
-$$
+```
 
 The actor loss is:
 
-$$
+```math
 \mathcal{L}_\pi
 =
 \mathbb{E}_{s}
@@ -552,18 +590,19 @@ $$
 \sum_a
 \pi_\theta(a|s)
 \left(
-\alpha\log\pi_\theta(a|s)
+\alpha
+\log\pi_\theta(a|s)
 -
 \min_i Q_{\psi_i}(s,a)
 \right)
 \right]
-$$
+```
 
 The entropy coefficient $\alpha$ is also learned automatically.
 
 ### Comments
 
-SAC performance highly depends on the gradient steps done per epoch. With 10 gradient steps per epoch, it trains faster (in epochs) than all other methods. However, it was long computationally, so not trained until the end. This is a **powerful method for optimizing objective when trajectory sampling is costly**, due to tunable gradient steps over the stored replay buffer.
+SAC performance highly depends on the gradient steps done per epoch. With 10 gradient steps per epoch, it trains faster in epochs than all other methods. However, it was computationally long, so it was not trained until full convergence. This is a **powerful method for optimizing objective when trajectory sampling is costly**, due to tunable gradient steps over the stored replay buffer.
 
 ---
 
@@ -660,5 +699,5 @@ The main conclusions are:
 1. **Vanilla REINFORCE is not enough** for reliable Pong learning under sparse delayed rewards.
 2. **Natural gradients significantly improve learning speed** by using policy geometry.
 3. **TRPO gives the strongest performance** among the tested methods.
-4. **PPO is a most stable strong practical compromise**, achieving good results with simpler implementation than TRPO.
-5. **SAC is fastest in epochs**, best solution for costly trajectories.
+4. **PPO is the most stable strong practical compromise**, achieving good results with simpler implementation than TRPO.
+5. **SAC is fastest in epochs**, and is a good candidate when trajectory sampling is costly.
